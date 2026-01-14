@@ -1,0 +1,200 @@
+#!/usr/bin/env python
+# -*- coding: utf-8 -*-
+
+import json
+import time
+import os
+import copy
+import jieba
+import logging
+from logging.handlers import RotatingFileHandler
+from pypinyin import lazy_pinyin
+
+# 设置日志
+script_dir = os.path.dirname(os.path.abspath(__file__))
+log_path = os.path.join(script_dir, "bookmark_pinyin.log")
+
+# 创建日志处理器，最大5MB，保留3个备份文件
+logger = logging.getLogger('bookmark_pinyin')
+logger.setLevel(logging.INFO)
+handler = RotatingFileHandler(log_path, maxBytes=5*1024*1024, backupCount=3)
+formatter = logging.Formatter('%(asctime)s - %(levelname)s - %(message)s')
+handler.setFormatter(formatter)
+logger.addHandler(handler)
+
+# 添加控制台输出
+console = logging.StreamHandler()
+console.setFormatter(formatter)
+logger.addHandler(console)
+
+# Chrome书签文件路径 - 支持环境变量配置
+DEFAULT_BOOKMARK_PATH = '~/Library/Application Support/Google/Chrome/Default/Bookmarks'
+BOOKMARK_PATH = os.path.expanduser(
+    os.getenv('BOOKMARK_PATH', DEFAULT_BOOKMARK_PATH)
+)
+
+# 备份文件路径
+BACKUP_PATH = os.path.expanduser(
+    os.getenv('BACKUP_PATH', f'{BOOKMARK_PATH}.bak')
+)
+
+# 检查间隔（秒）
+CHECK_INTERVAL = int(os.getenv('CHECK_INTERVAL', '30'))
+
+
+def read_bookmarks():
+    """读取Chrome书签文件"""
+    try:
+        with open(BOOKMARK_PATH, 'r', encoding='utf-8') as f:
+            return json.load(f)
+    except Exception as e:
+        logger.error(f"读取书签文件出错: {e}")
+        return None
+
+
+def write_bookmarks(bookmarks):
+    """写入Chrome书签文件"""
+    try:
+        # 先备份原文件
+        if os.path.exists(BOOKMARK_PATH):
+            with open(BOOKMARK_PATH, 'r', encoding='utf-8') as f_src:
+                with open(BACKUP_PATH, 'w', encoding='utf-8') as f_dst:
+                    f_dst.write(f_src.read())
+
+        # 写入新的书签文件
+        with open(BOOKMARK_PATH, 'w', encoding='utf-8') as f:
+            json.dump(bookmarks, f, ensure_ascii=False, indent=3)
+        return True
+    except Exception as e:
+        logger.error(f"写入书签文件出错: {e}")
+        return False
+
+
+def process_name(name):
+    """处理书签名称，添加分词后的拼音"""
+    # 检查名称是否已经包含拼音（通过检查是否有\r符号）
+    if '\r' in name:
+        # 只保留原名称部分
+        name = name.split('\r')[0].strip()
+
+    # 分词并转换为拼音
+    words = jieba.cut_for_search(name)
+    words_list = list(words)
+
+    # 对每个分词单独转换为拼音，直接连接不同的词
+    pinyin_results = []
+    for word in words_list:
+        if word.strip():  # 忽略空字符串
+            word_pinyin = ''.join(lazy_pinyin(word))  # 对单个词转拼音，不带空格
+            pinyin_results.append(word_pinyin)
+
+    pinyin_result = ''.join(pinyin_results)  # 直接连接，不用空格
+
+    # 格式化新的书签名
+    return f"{name} \r {pinyin_result}"
+
+
+def process_bookmark_node(node):
+    """递归处理书签节点"""
+    if 'type' in node:
+        if node['type'] == 'url':
+            # 处理URL类型的书签
+            if 'name' in node and node['name'].strip():
+                node['name'] = process_name(node['name'])
+        elif node['type'] == 'folder':
+            # 处理文件夹类型的书签
+            if 'name' in node and node['name'].strip():
+                node['name'] = process_name(node['name'])
+            # 递归处理子节点
+            if 'children' in node:
+                for child in node['children']:
+                    process_bookmark_node(child)
+
+
+def process_all_bookmarks():
+    """处理所有书签"""
+    bookmarks = read_bookmarks()
+    if not bookmarks:
+        return False
+
+    # 创建一个书签的副本用于处理
+    modified_bookmarks = copy.deepcopy(bookmarks)
+
+    # 处理书签栏节点
+    if 'roots' in modified_bookmarks:
+        for root_name, root_node in modified_bookmarks['roots'].items():
+            process_bookmark_node(root_node)
+
+    # 写入修改后的书签
+    return write_bookmarks(modified_bookmarks)
+
+
+def is_bookmarks_modified():
+    """检查书签是否被还原（通过比较是否有书签不包含拼音）"""
+    bookmarks = read_bookmarks()
+    if not bookmarks:
+        return False
+
+    # 检查函数 - 递归检查是否有书签不包含拼音
+    def check_node(node):
+        if 'type' in node:
+            if node['type'] == 'url':
+                # 检查URL类型的书签
+                if 'name' in node and node['name'].strip() and '\r' not in node['name']:
+                    return True
+            elif node['type'] == 'folder':
+                # 检查文件夹类型的书签
+                if 'name' in node and node['name'].strip() and '\r' not in node['name']:
+                    return True
+                # 递归检查子节点
+                if 'children' in node:
+                    for child in node['children']:
+                        if check_node(child):
+                            return True
+        return False
+
+    # 检查所有根节点
+    if 'roots' in bookmarks:
+        for root_name, root_node in bookmarks['roots'].items():
+            if check_node(root_node):
+                return True
+
+    return False
+
+
+def main():
+    """主函数"""
+    logger.info(f"开始处理Chrome书签，添加分词后的拼音...")
+    logger.info(f"书签路径: {BOOKMARK_PATH}")
+    logger.info(f"备份路径: {BACKUP_PATH}")
+    logger.info(f"检查间隔: {CHECK_INTERVAL}秒")
+
+    # 首次处理所有书签
+    if process_all_bookmarks():
+        logger.info("初始书签处理完成")
+    else:
+        logger.error("初始书签处理失败")
+        return
+
+    # 定期检查书签是否被还原
+    while True:
+        try:
+            time.sleep(CHECK_INTERVAL)
+            logger.info("检查书签是否被还原...")
+
+            if is_bookmarks_modified():
+                logger.info("检测到书签被还原，重新处理...")
+                process_all_bookmarks()
+                logger.info("书签重新处理完成")
+            else:
+                logger.info("书签未被还原，继续监控...")
+        except KeyboardInterrupt:
+            logger.info("程序被用户中断")
+            break
+        except Exception as e:
+            logger.error(f"发生错误: {e}")
+            time.sleep(10)  # 发生错误后等待一段时间再继续
+
+
+if __name__ == "__main__":
+    main()

@@ -1,4 +1,2 @@
-rumps
-pypinyin
 jieba
-pyyaml 
+pypinyin 

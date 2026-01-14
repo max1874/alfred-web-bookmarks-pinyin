@@ -2,178 +2,199 @@
 
 为 Alfred 的书签搜索添加中文拼音支持的工具。通过结合 jieba 分词和拼音转换，显著提升中文书签的搜索体验。
 
-**示例**：`明日方舟` → `明日方舟\rmrfz`，现在可以通过"方舟"、"fz"、"mrfz"等方式搜索到。
+**示例**：`明日方舟` → `明日方舟 \r mingrifangzhou`，现在可以通过"方舟"、"fangzhou"、"mrfz"等方式搜索到。
 
 ## 功能特点
 
 - 支持中文拼音搜索
 - 使用 jieba 分词提高搜索准确度
-- 双运行模式：CLI + GUI 菜单栏应用
-- 增量更新，避免重复处理
-- 完善的日志系统
-- 自动定时更新书签索引
+- 智能监控：每30秒自动检查书签是否被还原，自动重新处理
+- 自动备份：每次修改前自动备份原书签文件
+- 日志轮转：自动管理日志文件（最大5MB，保留3个备份）
+- 环境变量配置：支持自定义书签路径和检查间隔
+- 简单的服务管理：start/stop/restart/status
 
 ## 环境要求
 
 - macOS 操作系统
 - Python 3.6+
-- Google Chrome 浏览器
+- Google Chrome 浏览器（或其他 Chromium 系浏览器）
 - Alfred (with Powerpack)
 
-## 使用方式
+## 安装使用
 
-### 方式一：菜单栏应用（推荐）
-
-1. 克隆项目到本地
-   ```bash
-   git clone https://github.com/Kudoryafuka3/alfred-web-bookmarks-pinyin.git
-   cd alfred-web-bookmarks-pinyin
-   ```
-
-2. 安装依赖
-   ```bash
-   pip install -r requirements.txt
-   ```
-
-3. 运行菜单栏应用
-   ```bash
-   python app.py
-   ```
-
-4. （可选）编译为独立应用
-   ```bash
-   bash build.sh
-   ```
-   编译完成后，应用会在 `dist/` 目录下生成。
-
-**菜单栏应用功能**：
-- 手动同步书签
-- 开启/关闭自动同步（默认 5 分钟一次）
-- 实时查看同步状态
-
-### 方式二：LaunchAgent 后台任务
-
-1. 克隆项目并安装依赖（同上）
-
-2. 配置启动脚本权限
-   ```bash
-   chmod +x ./execute_python_script.sh
-   ```
-
-3. 修改 `execute_python_script.sh` 和 `com.mycompany.myscript.plist` 中的脚本路径为实际路径
-
-4. 复制 plist 文件到 LaunchAgents
-   ```bash
-   cp com.mycompany.myscript.plist ~/Library/LaunchAgents/
-   ```
-
-5. 加载定时任务
-   ```bash
-   launchctl load ~/Library/LaunchAgents/com.mycompany.myscript.plist
-   ```
-
-6. 验证任务是否加载成功
-   ```bash
-   launchctl list | grep com.mycompany.myscript
-   ```
-
-### 方式三：命令行直接运行
+### 1. 克隆项目
 
 ```bash
-python main.py
+git clone https://github.com/max1874/alfred-web-bookmarks-pinyin.git
+cd alfred-web-bookmarks-pinyin
 ```
+
+### 2. 安装依赖
+
+```bash
+pip install -r requirements.txt
+```
+
+### 3. 启动服务
+
+#### 方式一：使用服务管理脚本（推荐）
+
+```bash
+# 启动服务
+python run_as_service.py start
+
+# 查看服务状态
+python run_as_service.py status
+
+# 重启服务
+python run_as_service.py restart
+
+# 停止服务
+python run_as_service.py stop
+```
+
+服务启动后会在后台持续运行，日志输出到 `bookmark_pinyin.log` 文件。
+
+#### 方式二：直接运行
+
+```bash
+python bookmark_pinyin.py
+```
+
+直接运行时，按 `Ctrl+C` 可停止程序。
 
 ## 配置说明
 
-编辑 `config.py` 可以修改以下配置：
+### 环境变量配置
 
-- `bookmarks.chrome`：Chrome 书签文件路径（默认：`~/Library/Application Support/Google/Chrome/Default/Bookmarks`）
-- `auto_sync.enabled`：是否启用自动同步（默认：`False`）
-- `auto_sync.interval`：自动同步间隔秒数（默认：`300`）
-- `log_file`：日志文件路径（默认：`bookmarks_sync.log`）
-- `update_time_file`：时间戳文件路径（默认：`update_time.txt`）
+项目支持通过环境变量自定义配置。参考 `.env.example` 文件：
+
+```bash
+# Chrome 书签文件路径（默认）
+BOOKMARK_PATH=~/Library/Application Support/Google/Chrome/Default/Bookmarks
+
+# Edge 书签路径
+BOOKMARK_PATH=~/Library/Application Support/Microsoft Edge/Default/Bookmarks
+
+# Brave 书签路径
+BOOKMARK_PATH=~/Library/Application Support/BraveSoftware/Brave-Browser/Default/Bookmarks
+
+# 备份文件路径（默认在书签文件路径后加 .bak）
+BACKUP_PATH=~/Library/Application Support/Google/Chrome/Default/Bookmarks.bak
+
+# 检查间隔（秒，默认 30）
+CHECK_INTERVAL=30
+```
+
+### 使用环境变量
+
+```bash
+# 临时设置
+export BOOKMARK_PATH="~/Library/Application Support/Microsoft Edge/Default/Bookmarks"
+python run_as_service.py start
+
+# 或直接在命令中设置
+BOOKMARK_PATH="~/path/to/bookmarks" python run_as_service.py start
+```
 
 ## 技术实现
 
-### 实现原理
+### 工作原理
 
-工具使用 jieba 分词的搜索模式对中文书签进行分词处理，然后将分词结果转换为拼音。这样即使搜索词与书签名称不完全匹配，也能找到相关结果。例如，搜索"fz"或"方舟"都能找到"明日方舟"的书签。
+1. **分词处理**：使用 jieba 的搜索模式对书签名称进行分词
+2. **拼音转换**：使用 pypinyin 将分词结果转换为拼音
+3. **格式化**：将原名称和拼音组合为 `原名称 \r 拼音` 格式
+4. **智能监控**：定期检查书签是否被浏览器还原，自动重新处理
 
-### 核心流程
+### 处理流程
 
 ```
 读取 Chrome 书签 JSON
     ↓
 jieba 分词（搜索模式）
     ↓
-pypinyin 转拼音首字母
+pypinyin 转拼音
     ↓
-拼音去重
+格式化为 "原名 \r 拼音"
     ↓
-重写书签名称为 "原名\r拼音串"
+备份原文件
     ↓
 写回书签文件
+    ↓
+每30秒检查是否被还原
 ```
 
 ### 依赖包
 
-- `pypinyin`：中文转拼音
 - `jieba`：中文分词
-- `rumps`：macOS 菜单栏应用框架
-- `pyyaml`：配置文件解析
-- `py2app`：打包为 macOS 应用
+- `pypinyin`：中文转拼音
+
+## 文件说明
+
+- `bookmark_pinyin.py`：主程序脚本，负责处理书签和监控
+- `run_as_service.py`：服务管理脚本，用于后台运行管理
+- `requirements.txt`：项目依赖
+- `.env.example`：配置文件示例
+- `bookmark_pinyin.log`：运行日志（自动生成）
 
 ## 常见问题
 
-### 每次打开都看到通知 "xxx.sh 已在后台运行"
-
-执行以下命令关闭通知：
-```bash
-sudo sfltool resetbtm
-```
-
-参考链接：[后台项目已添加的通知如何关闭](https://discussionschinese.apple.com/thread/254470532)
-
-### 停用定时任务
-
-如需停用定时更新服务，执行：
-```bash
-launchctl unload ~/Library/LaunchAgents/com.mycompany.myscript.plist
-```
-
-### 查看日志
-
-```bash
-tail -f bookmarks_sync.log
-```
-
 ### 支持其他浏览器吗？
 
-目前仅支持 Chrome/Chromium 系浏览器。如需支持其他浏览器，可以修改 `config.py` 中的书签文件路径。
+支持所有基于 Chromium 的浏览器（Chrome、Edge、Brave等）。只需通过 `BOOKMARK_PATH` 环境变量指定正确的书签文件路径即可。
 
-## 项目结构
+### 如何查看日志？
 
+```bash
+# 查看最新日志
+tail -f bookmark_pinyin.log
+
+# 查看服务状态（包含最近5条日志）
+python run_as_service.py status
 ```
-alfred-web-bookmarks-pinyin/
-├── bookmarks_pinyin.py          # 核心处理模块
-├── main.py                       # CLI 命令行入口
-├── app.py                        # GUI 菜单栏应用
-├── config.py                     # 配置管理
-├── logger.py                     # 日志模块
-├── requirements.txt              # Python 依赖
-├── setup.py                      # py2app 打包配置
-├── build.sh                      # 编译脚本
-├── execute_python_script.sh      # LaunchAgent 执行脚本
-├── com.mycompany.myscript.plist  # LaunchAgent 配置
-└── last_update.py                # 时间戳获取工具
+
+### 书签会丢失吗？
+
+不会。程序每次修改书签前都会自动备份到 `.bak` 文件。如果出现问题，可以从备份文件恢复。
+
+### 如何开机自启动？
+
+可以使用 macOS 的 LaunchAgent：
+
+1. 创建 `~/Library/LaunchAgents/com.bookmark.pinyin.plist`：
+
+```xml
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>com.bookmark.pinyin</string>
+    <key>ProgramArguments</key>
+    <array>
+        <string>/path/to/python</string>
+        <string>/path/to/bookmark_pinyin.py</string>
+    </array>
+    <key>RunAtLoad</key>
+    <true/>
+    <key>KeepAlive</key>
+    <true/>
+</dict>
+</plist>
+```
+
+2. 加载服务：
+
+```bash
+launchctl load ~/Library/LaunchAgents/com.bookmark.pinyin.plist
 ```
 
 ## 故障排除
 
-1. 确保书签文件路径正确
-2. 检查 Python 环境和依赖包安装状态
-3. 验证定时任务是否正常运行
-4. 查看日志文件排查问题
+1. **服务无法启动**：检查 Python 环境和依赖包是否正确安装
+2. **书签未更新**：查看日志文件确认是否有错误信息
+3. **权限问题**：确保对书签文件有读写权限
 
 ## 贡献指南
 

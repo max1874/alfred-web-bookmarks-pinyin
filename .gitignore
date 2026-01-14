@@ -17,11 +17,9 @@ ENV/
 env/
 
 # Project specific - runtime files
-update_time.txt
-bookmarks_sync.log
 *.log
+*.log.*
+.env
 
-# py2app build
-build/
-dist/
-*.egg-info/
+# Backup files
+*.bak
