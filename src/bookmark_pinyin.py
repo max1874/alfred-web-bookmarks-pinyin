@@ -5,6 +5,7 @@ import json
 import time
 import os
 import copy
+import re
 import jieba
 import logging
 from logging.handlers import RotatingFileHandler
@@ -71,27 +72,70 @@ def write_bookmarks(bookmarks):
 
 
 def process_name(name):
-    """处理书签名称，添加分词后的拼音"""
-    # 检查名称是否已经包含拼音（通过检查是否有\r符号）
+    """处理书签名称，添加分词后的拼音（仅处理含中文的书签）"""
+    # 1. 移除 \r 及后续内容
     if '\r' in name:
-        # 只保留原名称部分
         name = name.split('\r')[0].strip()
 
-    # 分词并转换为拼音
-    words = jieba.cut_for_search(name)
+    # 2. 检查是否包含中文字符
+    has_chinese = bool(re.search(r'[\u4e00-\u9fff]', name))
+
+    if not has_chinese:
+        # 没有中文，不处理
+        logger.debug(f"无中文字符，跳过: '{name}'")
+        return name
+
+    # 3. 提取中文字符并生成拼音（关键：只对中文生成拼音）
+    chinese_chars = ''.join(re.findall(r'[\u4e00-\u9fff]+', name))
+
+    words = jieba.cut_for_search(chinese_chars)
     words_list = list(words)
 
-    # 对每个分词单独转换为拼音，直接连接不同的词
     pinyin_results = []
     for word in words_list:
-        if word.strip():  # 忽略空字符串
-            word_pinyin = ''.join(lazy_pinyin(word))  # 对单个词转拼音，不带空格
+        if word.strip():
+            word_pinyin = ''.join(lazy_pinyin(word))
             pinyin_results.append(word_pinyin)
 
-    pinyin_result = ''.join(pinyin_results)  # 直接连接，不用空格
+    expected_pinyin = ''.join(pinyin_results)
 
-    # 格式化新的书签名
-    return f"{name} \r {pinyin_result}"
+    # 4. 去重逻辑：循环清理末尾的重复拼音
+    clean_name = name
+    max_iterations = 5
+
+    for i in range(max_iterations):
+        # 移除空格后检查（忽略大小写）
+        test_name = clean_name.replace(' ', '').replace('\t', '').lower()
+        expected_lower = expected_pinyin.lower()
+
+        if expected_lower and test_name.endswith(expected_lower):
+            # 从后往前移除 expected_pinyin 长度的字符
+            chars_to_remove = len(expected_pinyin)
+            temp = list(clean_name)
+            removed = 0
+            pos = len(temp) - 1
+
+            while removed < chars_to_remove and pos >= 0:
+                if temp[pos] not in [' ', '\t']:
+                    temp[pos] = ''
+                    removed += 1
+                pos -= 1
+
+            clean_name = ''.join(temp).strip()
+
+            # 如果清理后没有中文了，说明过度清理，保留原名
+            if not re.search(r'[\u4e00-\u9fff]', clean_name):
+                logger.debug(f"清理后无中文，保留原名: '{name}'")
+                clean_name = name
+                break
+
+            logger.debug(f"第{i+1}次清理: '{name}' → '{clean_name}'")
+        else:
+            # 不再有重复，退出
+            break
+
+    # 5. 返回结果
+    return f"{clean_name} \r {expected_pinyin}"
 
 
 def process_bookmark_node(node):
@@ -130,22 +174,30 @@ def process_all_bookmarks():
 
 
 def is_bookmarks_modified():
-    """检查书签是否被还原（通过比较是否有书签不包含拼音）"""
+    """检查书签是否被还原（通过比较含中文的书签是否不包含拼音）"""
     bookmarks = read_bookmarks()
     if not bookmarks:
         return False
 
-    # 检查函数 - 递归检查是否有书签不包含拼音
+    # 检查函数 - 递归检查是否有含中文的书签不包含拼音
     def check_node(node):
         if 'type' in node:
             if node['type'] == 'url':
                 # 检查URL类型的书签
-                if 'name' in node and node['name'].strip() and '\r' not in node['name']:
-                    return True
+                if 'name' in node and node['name'].strip():
+                    name = node['name']
+                    # 只检查包含中文的书签
+                    has_chinese = bool(re.search(r'[\u4e00-\u9fff]', name))
+                    if has_chinese and '\r' not in name:
+                        return True
             elif node['type'] == 'folder':
                 # 检查文件夹类型的书签
-                if 'name' in node and node['name'].strip() and '\r' not in node['name']:
-                    return True
+                if 'name' in node and node['name'].strip():
+                    name = node['name']
+                    # 只检查包含中文的书签
+                    has_chinese = bool(re.search(r'[\u4e00-\u9fff]', name))
+                    if has_chinese and '\r' not in name:
+                        return True
                 # 递归检查子节点
                 if 'children' in node:
                     for child in node['children']:
