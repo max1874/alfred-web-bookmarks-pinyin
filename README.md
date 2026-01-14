@@ -185,7 +185,3 @@ alfred-web-bookmarks-pinyin/
 ## 许可证
 
 MIT License
-
-## 更多信息
-
-详细的技术实现说明请参考[博客文章](https://kudoryafuka3.github.io/2023/08/13/%E8%AE%A9-Alfred-%E8%87%AA%E5%B8%A6%E7%9A%84%E4%B9%A6%E7%AD%BE%E6%90%9C%E7%B4%A2%E6%94%AF%E6%8C%81%E6%8B%BC%E9%9F%B3%E5%8A%9F%E8%83%BD/)。
