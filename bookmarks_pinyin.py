@@ -14,11 +14,12 @@ jieba.setLogLevel(jieba.logging.INFO)
 
 @dataclass
 class BookmarkProcessor:
-    file_path: Path
+    bookmark_path: Path
     update_time_file: Path
+    logger: logging.Logger = logger  # 添加 logger 参数，默认使用模块级 logger
     
     def __post_init__(self):
-        self.file_path = Path(self.file_path).expanduser()
+        self.bookmark_path = Path(self.bookmark_path).expanduser()
         self.update_time_file = Path(self.update_time_file)
     
     def process_bookmark_name(self, name: str) -> str:
@@ -57,7 +58,7 @@ class BookmarkProcessor:
     def get_file_update_time(self) -> Optional[float]:
         """获取文件最后修改时间"""
         try:
-            return self.file_path.stat().st_mtime if self.file_path.exists() else None
+            return self.bookmark_path.stat().st_mtime if self.bookmark_path.exists() else None
         except OSError as e:
             logger.error(f"Error getting file update time: {e}")
             return None
@@ -80,7 +81,7 @@ class BookmarkProcessor:
     def read_bookmarks(self) -> Optional[Dict]:
         """读取书签文件内容"""
         try:
-            return json.loads(self.file_path.read_bytes().decode('utf-8'))
+            return json.loads(self.bookmark_path.read_bytes().decode('utf-8'))
         except (json.JSONDecodeError, OSError) as e:
             logger.error(f"Error reading bookmarks file: {e}")
             return None
@@ -88,7 +89,7 @@ class BookmarkProcessor:
     def write_bookmarks(self, content: Dict) -> bool:
         """写入书签文件内容"""
         try:
-            self.file_path.write_bytes(
+            self.bookmark_path.write_bytes(
                 json.dumps(content, ensure_ascii=False, indent=2).encode('utf-8')
             )
             return True
