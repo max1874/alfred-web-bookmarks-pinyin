@@ -42,16 +42,16 @@ pip install -r requirements.txt
 
 ```bash
 # 启动服务
-python run_as_service.py start
+python src/run_as_service.py start
 
 # 查看服务状态
-python run_as_service.py status
+python src/run_as_service.py status
 
 # 重启服务
-python run_as_service.py restart
+python src/run_as_service.py restart
 
 # 停止服务
-python run_as_service.py stop
+python src/run_as_service.py stop
 ```
 
 服务启动后会在后台持续运行，日志输出到 `bookmark_pinyin.log` 文件。
@@ -59,7 +59,7 @@ python run_as_service.py stop
 #### 方式二：直接运行
 
 ```bash
-python bookmark_pinyin.py
+python src/bookmark_pinyin.py
 ```
 
 直接运行时，按 `Ctrl+C` 可停止程序。
@@ -68,7 +68,7 @@ python bookmark_pinyin.py
 
 ### 环境变量配置
 
-项目支持通过环境变量自定义配置。参考 `.env.example` 文件：
+项目支持通过环境变量自定义配置。参考 `examples/.env.example` 文件：
 
 ```bash
 # Chrome 书签文件路径（默认）
@@ -92,10 +92,10 @@ CHECK_INTERVAL=30
 ```bash
 # 临时设置
 export BOOKMARK_PATH="~/Library/Application Support/Microsoft Edge/Default/Bookmarks"
-python run_as_service.py start
+python src/run_as_service.py start
 
 # 或直接在命令中设置
-BOOKMARK_PATH="~/path/to/bookmarks" python run_as_service.py start
+BOOKMARK_PATH="~/path/to/bookmarks" python src/run_as_service.py start
 ```
 
 ## 技术实现
@@ -130,13 +130,20 @@ pypinyin 转拼音
 - `jieba`：中文分词
 - `pypinyin`：中文转拼音
 
-## 文件说明
+## 项目结构
 
-- `bookmark_pinyin.py`：主程序脚本，负责处理书签和监控
-- `run_as_service.py`：服务管理脚本，用于后台运行管理
-- `requirements.txt`：项目依赖
-- `.env.example`：配置文件示例
-- `bookmark_pinyin.log`：运行日志（自动生成）
+```
+alfred-web-bookmarks-pinyin/
+├── src/
+│   ├── bookmark_pinyin.py      # 主程序脚本，负责处理书签和监控
+│   └── run_as_service.py       # 服务管理脚本，用于后台运行管理
+├── examples/
+│   └── .env.example            # 配置文件示例
+├── README.md                    # 项目文档
+├── requirements.txt             # 项目依赖
+├── LICENSE                      # 许可证
+└── bookmark_pinyin.log          # 运行日志（自动生成）
+```
 
 ## 常见问题
 
@@ -151,7 +158,7 @@ pypinyin 转拼音
 tail -f bookmark_pinyin.log
 
 # 查看服务状态（包含最近5条日志）
-python run_as_service.py status
+python src/run_as_service.py status
 ```
 
 ### 书签会丢失吗？
@@ -174,7 +181,7 @@ python run_as_service.py status
     <key>ProgramArguments</key>
     <array>
         <string>/path/to/python</string>
-        <string>/path/to/bookmark_pinyin.py</string>
+        <string>/path/to/alfred-web-bookmarks-pinyin/src/bookmark_pinyin.py</string>
     </array>
     <key>RunAtLoad</key>
     <true/>
