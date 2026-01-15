@@ -36,7 +36,23 @@ cd alfred-web-bookmarks-pinyin
 pip install -r requirements.txt
 ```
 
-### 3. 启动服务
+### 3. 配置（可选）
+
+项目会自动读取项目根目录的 `.env` 文件。如需自定义配置，可以创建 `.env` 文件：
+
+```bash
+# 复制示例配置
+cp examples/.env.example .env
+
+# 编辑配置
+vim .env
+```
+
+**默认配置**（无需 .env 文件也能运行）：
+- Chrome 书签路径：`~/Library/Application Support/Google/Chrome/Default/Bookmarks`
+- 检查间隔：30 秒
+
+### 4. 启动服务
 
 #### 方式一：使用服务管理脚本（推荐）
 
@@ -66,37 +82,38 @@ python src/bookmark_pinyin.py
 
 ## 配置说明
 
-### 环境变量配置
+项目使用 `.env` 文件进行配置。默认配置已经可以直接使用，无需额外设置。
 
-项目支持通过环境变量自定义配置。参考 `examples/.env.example` 文件：
+### 自定义配置
+
+如需修改配置（如使用 Edge 或 Brave 浏览器），创建 `.env` 文件：
 
 ```bash
-# Chrome 书签文件路径（默认）
+# 复制示例配置
+cp examples/.env.example .env
+
+# 编辑 .env 文件
+# Chrome（默认）
 BOOKMARK_PATH=~/Library/Application Support/Google/Chrome/Default/Bookmarks
 
-# Edge 书签路径
+# Edge
 BOOKMARK_PATH=~/Library/Application Support/Microsoft Edge/Default/Bookmarks
 
-# Brave 书签路径
+# Brave
 BOOKMARK_PATH=~/Library/Application Support/BraveSoftware/Brave-Browser/Default/Bookmarks
 
-# 备份文件路径（默认在书签文件路径后加 .bak）
+# 其他配置
 BACKUP_PATH=~/Library/Application Support/Google/Chrome/Default/Bookmarks.bak
-
-# 检查间隔（秒，默认 30）
 CHECK_INTERVAL=30
 ```
 
-### 使用环境变量
+### 配置项说明
 
-```bash
-# 临时设置
-export BOOKMARK_PATH="~/Library/Application Support/Microsoft Edge/Default/Bookmarks"
-python src/run_as_service.py start
-
-# 或直接在命令中设置
-BOOKMARK_PATH="~/path/to/bookmarks" python src/run_as_service.py start
-```
+| 配置项 | 说明 | 默认值 |
+|--------|------|--------|
+| `BOOKMARK_PATH` | 浏览器书签文件路径 | Chrome 默认路径 |
+| `BACKUP_PATH` | 备份文件路径 | `{BOOKMARK_PATH}.bak` |
+| `CHECK_INTERVAL` | 检查间隔（秒） | `30` |
 
 ## 技术实现
 
@@ -129,6 +146,7 @@ pypinyin 转拼音
 
 - `jieba`：中文分词
 - `pypinyin`：中文转拼音
+- `python-dotenv`：.env 文件配置加载
 
 ## 项目结构
 

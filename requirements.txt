@@ -1,2 +1,3 @@
 jieba
-pypinyin 
+pypinyin
+python-dotenv 
