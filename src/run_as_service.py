@@ -9,6 +9,7 @@ import time
 def start_service():
     """启动书签监控服务"""
     script_dir = os.path.dirname(os.path.abspath(__file__))
+    project_root = os.path.dirname(script_dir)  # 项目根目录
     script_path = os.path.join(script_dir, "bookmark_pinyin.py")
 
     # 检查主程序是否存在
@@ -24,8 +25,16 @@ def start_service():
     # 日志文件路径（现在主要用于状态显示）
     log_path = os.path.join(script_dir, "bookmark_pinyin.log")
 
-    # 使用完整路径运行Python，让程序在后台运行
-    python_cmd = sys.executable  # 获取当前Python解释器路径
+    # 检测并使用虚拟环境的 Python
+    venv_python = os.path.join(project_root, '.venv', 'bin', 'python')
+
+    if os.path.exists(venv_python):
+        python_cmd = venv_python
+        print(f"使用虚拟环境: {venv_python}")
+    else:
+        python_cmd = sys.executable
+        print(f"虚拟环境未找到，使用当前 Python: {python_cmd}")
+
     cmd = f"nohup {python_cmd} -u {script_path} > /dev/null 2>&1 &"
 
     try:

@@ -30,11 +30,20 @@ git clone https://github.com/max1874/alfred-web-bookmarks-pinyin.git
 cd alfred-web-bookmarks-pinyin
 ```
 
-### 2. 安装依赖
+### 2. 创建虚拟环境并安装依赖
 
 ```bash
+# 创建虚拟环境
+python3 -m venv .venv
+
+# 激活虚拟环境
+source .venv/bin/activate
+
+# 安装依赖
 pip install -r requirements.txt
 ```
+
+**注意**：服务管理脚本会自动检测并使用 `.venv` 虚拟环境，无需手动激活。
 
 ### 3. 配置（可选）
 
