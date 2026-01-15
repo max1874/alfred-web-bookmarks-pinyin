@@ -59,7 +59,7 @@ vim .env
 
 **默认配置**（无需 .env 文件也能运行）：
 - Chrome 书签路径：`~/Library/Application Support/Google/Chrome/Default/Bookmarks`
-- 检查间隔：30 秒
+- 检查间隔：30 秒（推荐设置为 1-2 小时以降低 CPU 使用）
 
 ### 4. 启动服务
 
